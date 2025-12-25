@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h> // biblioteca para "mexer" nas letras
-#include <stdlib.h> // biblioteca dos mallocs 
+#include <ctype.h> 
+#include <stdlib.h> 
 #include "../include/morse.h"
 
-char *morse_tabela[] = { // O * é pa dizer que estamos a lidar com ponteiros
-    // não foi usada matriz e sim um array de ponteiros para ocupar menos espaço na memoria
+// Tabela para mapear caracteres
+static char *morse_tabela[] = {
     ".-",   "-...", "-.-.", "-..",  ".",    "..-.", "--.",  "....", "..",    // A-I
     ".---", "-.-",  ".-..", "--",   "-.",   "---",  ".--.", "--.-", ".-.",   // J-R
     "...",  "-",    "..-",  "...-", ".--",  "-..-", "-.--", "--..",          // S-Z
@@ -13,69 +13,129 @@ char *morse_tabela[] = { // O * é pa dizer que estamos a lidar com ponteiros
     ".-.-.-", "--..--", "..--..", "-.-.--" // . , ? !
 };
 
+// FUNÇÃO 1: LEITURA DINÂMICA
 char* lerTextoMemDinamica() {
-    int capacidade = 10;      // capacidade pre reservada 
+    int capacidade = 10;      
     int tamanhoAtual = 0;     
-    char *buffer = malloc(capacidade * sizeof(char)); // Cria o primeiro bloco
-    
-    int c;
+    char *buffer = malloc(capacidade * sizeof(char)); 
+    int c; 
 
-    if (!buffer) return NULL; // verificaçao de segurança caso não tenha espaço no programa "fecha"
+    if (!buffer) return NULL; 
 
-    // Loop de ler caracteres
     while (1) {
-        c = getchar(); // Le as teclas
+        c = getchar(); 
 
-        if (c == '\n' || c == EOF) { // ao clicar enter ou termina o ficheiro End Of File
+        if (c == '\n' || c == EOF) { 
             break;
         }
-
         
-        if (tamanhoAtual >= capacidade - 1) { // ver se chega o  -1 para sobrar espaço para o \0
-            capacidade += 10; // Aumenta mais 10 lugares
-            
-            char *temp = realloc(buffer, capacidade * sizeof(char)); // aumentar o espaço alocado
+        if (tamanhoAtual >= capacidade - 1) { 
+            capacidade += 10; 
+            char *temp = realloc(buffer, capacidade * sizeof(char)); 
             
             if (!temp) {
                 free(buffer);
-                return NULL; // Erro de memória
+                return NULL; 
             }
             buffer = temp;
         }
 
-        buffer[tamanhoAtual] = c; // basicamente a cena do i++
+        buffer[tamanhoAtual] = c; 
         tamanhoAtual++;
     }
 
-    buffer[tamanhoAtual] = '\0'; //termina a string
-    
+    buffer[tamanhoAtual] = '\0'; 
     return buffer;
 }
 
-void traduzirParaMorse(char *texto) {
-    for (int i = 0; texto[i] != '\0'; i++) {
-        char c = toupper(texto[i]); // transformar tudo em letras grandes
-        int sitio = -1; // um interger para sser variavel de controlo e depois guardar a posiçao da letra
+// FUNÇÃO 2: TEXTO -> MORSE
+char* traduzirParaMorse(char *texto) {
+    char *buffer = calloc((strlen(texto) * 7) + 1, sizeof(char));
+    
+    if (buffer == NULL) return NULL; 
 
-        if (c >= 'A' && c <= 'Z') {
-            sitio = c - 'A'; // calcular o sitio das letras se c = a c - A = 65-65 ou seja pos 0 e c = b 66-65 = 1 pos 1
-        } 
-        else if (c >= '0' && c <= '9') {
-            sitio = (c - '0') + 26; // passa as letras á frente e ve os numeros
-        } 
-        // caracteres especiais
+    for (int i = 0; texto[i] != '\0'; i++) {
+        char c = toupper(texto[i]);
+        int sitio = -1;
+
+        if (c >= 'A' && c <= 'Z') sitio = c - 'A';
+        else if (c >= '0' && c <= '9') sitio = (c - '0') + 26;
         else if (c == '.') sitio = 36;
         else if (c == ',') sitio = 37;
         else if (c == '?') sitio = 38;
         else if (c == '!') sitio = 39;
         else if (c == ' ') {
-            printf("/ "); // Espaço entre palavras manda uma barra para ser mais facil de ler que estava impossivel de decifrar
+            strcat(buffer, "/ "); 
             continue;
         }
 
         if (sitio != -1) {
-            printf("%s ", morse_tabela[sitio]);
+            strcat(buffer, morse_tabela[sitio]); 
+            strcat(buffer, " "); 
         }
     }
-    printf("\n");
+    
+    return buffer;
+}
+
+// FUNÇÃO 3: MORSE -> TEXTO
+char* converterMorseParaTexto(char *morseOriginal) {
+    char *resultado = malloc((strlen(morseOriginal) + 1) * sizeof(char));
+    char *copiaSegura = malloc((strlen(morseOriginal) + 1) * sizeof(char));
+    
+    if (!resultado || !copiaSegura) return NULL; 
+
+    strcpy(copiaSegura, morseOriginal);
+
+    int posAtual = 0; 
+    char *token = strtok(copiaSegura, " "); 
+
+    while (token != NULL) {
+        if (strcmp(token, "/") == 0) {
+            resultado[posAtual] = ' '; 
+            posAtual++;
+        } 
+        else {
+            int indiceEncontrado = -1;
+            for (int i = 0; i < 40; i++) {
+                if (strcmp(morse_tabela[i], token) == 0) {
+                    indiceEncontrado = i;
+                    break;
+                }
+            }
+
+            if (indiceEncontrado != -1) {
+                char letra = '?';
+                if (indiceEncontrado <= 25) letra = indiceEncontrado + 'A';
+                else if (indiceEncontrado <= 35) letra = (indiceEncontrado - 26) + '0';
+                else if (indiceEncontrado == 36) letra = '.';
+                else if (indiceEncontrado == 37) letra = ',';
+                else if (indiceEncontrado == 38) letra = '?';
+                else if (indiceEncontrado == 39) letra = '!';
+
+                resultado[posAtual] = letra;
+                posAtual++;
+            }
+        }
+        token = strtok(NULL, " ");
+    }
+
+    resultado[posAtual] = '\0'; 
+    free(copiaSegura); 
+    
+    return resultado;
+}
+
+// FUNÇÃO 4: EXECUTAR ATALHOS (Nova Localização)
+void executarAtalho(char *mensagem) {
+    printf("\n>>> MENSAGEM PREDEFINIDA <<<\n");
+    printf("Texto Normal: %s\n", mensagem);
+    
+    // Chama a função interna de tradução
+    char *resultadoMorse = traduzirParaMorse(mensagem);
+    
+    if (resultadoMorse) {
+        printf("Codigo Morse: %s\n", resultadoMorse);
+        free(resultadoMorse); // Limpa a memória
+    }
 }
